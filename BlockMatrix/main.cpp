@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
     }
   }
     
-  /*long long start = __rdtsc();
+  long long start = __rdtsc();
   c.mul(a,b);
   long long end   = __rdtsc();
   double sum = 0;
@@ -36,16 +36,16 @@ int main(int argc, char **argv) {
       sum += *c(i,j);
     }
   }
-  printf("sum=%.0lf time=%.6f\n", sum, (end - start)/1000000000.);*/
+  printf("W/O Optim: sum=%.0lf time=%.6f\n", sum, (end - start)/1000000000.);
 
-  long long start = __rdtsc();
+  start = __rdtsc();
   cm.mul(am, bm);
-  long long end   = __rdtsc();
-  double sum = 0;
+  end   = __rdtsc();
+  sum = 0;
   for (int i = 0; i < cy; i++) {
     for (int j = 0; j < cx; j++) {
       sum += cm(i, j);
     }
   }
-  printf("sum=%.0lf time=%.6f\n", sum, (end - start)/1000000000.);
+  printf("Optim: sum=%.0lf time=%.6f\n", sum, (end - start)/1000000000.);
 }

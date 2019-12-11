@@ -50,9 +50,7 @@ public:
     BlockMatrix(int rows, int cols) : block_size(OP_SIZE), matrix_n_rows(rows), matrix_n_cols(cols), blocks() {
         block_n_rows = matrix_n_rows / block_size + (matrix_n_rows % block_size > 0);
         block_n_cols = matrix_n_cols / block_size + (matrix_n_cols % block_size > 0);
-        printf("r: %d c: %d\n", block_n_rows, block_n_cols);
         blocks = new Block<T> [block_n_rows * block_n_cols];
-        printf("%f\n", blocks[0].body[0][0]);
     }
     ~BlockMatrix() {
         
