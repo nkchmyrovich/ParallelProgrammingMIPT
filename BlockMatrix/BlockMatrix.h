@@ -8,9 +8,9 @@ public:
         Block res_matr;
         for (int i = 0; i < block_size; i++) {
             for (int j = 0; j < block_size; j++) {
-                res_matr.body[i][j] = 0;
+                res_matr.body[i * block_size + j] = 0;
                 for (int k = 0; k < block_size; k++) {
-                    res_matr.body[i][j] += body[i][k] * l_block.body[k][j];
+                    res_matr.body[i * block_size + j] += body[i * block_size + k] * l_block.body[k * block_size + j];
                 }
             }
         }
@@ -20,23 +20,21 @@ public:
     Block& operator+=(const Block& that_block) {
         for (int i = 0; i < block_size; i++) {
             for (int j = 0; j < block_size; j++) {
-                body[i][j] += that_block.body[i][j];
+                body[i * block_size + j] += that_block.body[i * block_size + j];
             }
         }
         return *this;
     }
 
     Block() : block_size(OP_SIZE) {
-        body = new T* [block_size];
-        for (int i = 0; i < block_size; i++) {
-            body[i] = new T [block_size];
-        }
+        body = new T [block_size * block_size];
+        
     }
 
     ~Block() {
     
     }
-    T** body;
+    T* body;
 private:
     int block_size;
 };
@@ -70,7 +68,7 @@ T& BlockMatrix<T>::operator() (int row, int col) {
     int block_col = col / block_size;
     int row_in_block = row % block_size;
     int col_in_block = col % block_size;
-    return blocks[block_row * block_n_cols + block_col].body[row_in_block][col_in_block];
+    return blocks[block_row * block_n_cols + block_col].body[row_in_block * block_size + col_in_block];
 }
 
 
