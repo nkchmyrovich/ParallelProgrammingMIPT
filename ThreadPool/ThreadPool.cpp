@@ -2,7 +2,7 @@
 #include <utility>
 
 
-ThreadPool::ThreadPool(int thread_num) : thread_vec(thread_num) {
+ThreadPool::ThreadPool(int thread_num) : thread_vec(thread_num), is_active(true) {
     sem = dispatch_semaphore_create(0);
     sem_q = dispatch_semaphore_create(0);
     for (auto& thread : thread_vec) {
@@ -12,9 +12,6 @@ ThreadPool::ThreadPool(int thread_num) : thread_vec(thread_num) {
 
 
 ThreadPool::~ThreadPool() {
-    for (auto& thread : thread_vec) {
-        thread.join();
-    }
     dispatch_release(sem);
 }
 
@@ -26,6 +23,9 @@ void ThreadPool::wait() {
 
 void ThreadPool::stop_pool () {
     is_active = false;
+    for (auto& thread : thread_vec) {
+        this->push_task([](void*){ }, nullptr);
+    }
     for (auto& thread : thread_vec) {
         thread.join();
     }
@@ -51,10 +51,10 @@ void ThreadPool::wait_for_task() {
 
 void ThreadPool::push_task(void (*func)(void*), void* args) {
     printf("locking q\n");
-    mut_push.lock();
+    mut.lock();
     printf("pushing...\n");
     std::pair<fptr, void*> task(func, args);
     task_queue.push(task);
-    mut_push.unlock();
+    mut.unlock();
     dispatch_semaphore_signal(sem);
 }
