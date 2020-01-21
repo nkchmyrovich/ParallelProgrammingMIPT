@@ -20,6 +20,10 @@ struct ArgSort {
     std::mutex* m;
     std::condition_variable* c;
     bool is_wait;
+    bool is_left;
+    bool is_left_done;
+    bool is_right_done;
+    bool* done;
 };
 
 struct ArgMerge {
@@ -101,11 +105,16 @@ void bitonic_sort_parallel(void* arg) {
     ThreadPool* thread_pool = ((ArgSort*)arg)->thread_pool;
     bool is_greater = ((ArgSort*)arg)->is_greater;
     bool is_wait = ((ArgSort*)arg)->is_wait;
+    bool is_left = ((ArgSort*)arg)->is_left;
+    bool* done = ((ArgSort*)arg)->done;
 
     if (size > 1) {
         /* Define sizes of subarrays */
         size_t left_size = size / 2;
         size_t right_size = size - left_size;
+        
+        bool* is_done_next = (bool*)malloc(sizeof(bool));
+        *is_done_next = false;
         
         /* Create mutex and cond var for next recursion level*/
         std::mutex m;
@@ -120,18 +129,26 @@ void bitonic_sort_parallel(void* arg) {
         narg->m = &m;
         narg->c = &c;
         narg->is_wait = false;
+        narg->is_left = true;
+        narg->is_left_done = false;
+        narg->is_right_done = false;
+        narg->done = is_done_next;
 
         thread_pool->push_task(&bitonic_sort_parallel, narg);
 
-        /* Make an arg for right sub array and execute it in a current thread */
+        /* Make an arg for right sub array and execute it in the current thread */
         ArgSort* nnarg = (ArgSort*)malloc(sizeof(ArgSort));
         nnarg->array = array + left_size;
         nnarg->size = right_size;
         nnarg->thread_pool = thread_pool;
         nnarg->is_greater = false;
-        narg->m = &m;
-        narg->c = &c;
-        narg->is_wait = true;
+        nnarg->m = &m;
+        nnarg->c = &c;
+        nnarg->is_wait = true;
+        nnarg->is_left = false;
+        nnarg->is_left_done = false;
+        nnarg->is_right_done = false;
+        nnarg->done = is_done_next;
 
         bitonic_sort_parallel(nnarg);
         
@@ -144,15 +161,30 @@ void bitonic_sort_parallel(void* arg) {
 
         bitonic_merge(mnnarg);
         
-        if (is_wait) {
+         if (is_wait) {
             std::unique_lock<std::mutex> lock(*((ArgSort*)arg)->m);
-            ((ArgSort*)arg)->c->wait(lock);
+            ((ArgSort*)arg)->c->wait(lock, [done](){ return *done;});
         } else {
+            *done = true;
             ((ArgSort*)arg)->c->notify_one();
         }
+        
+        /* if (((ArgSort*)arg)->is_left) {
+            printf("SET LEFT\n");
+            ((ArgSort*)arg)->is_left_done = true;
+        } else {
+            printf("SET RIGHT\n");
+            ((ArgSort*)arg)->is_right_done = true;
+        }
+        
+        while (true) {
+            if (((ArgSort*)arg)->is_right_done && ((ArgSort*)arg)->is_left_done)
+                break;
+        } */
 
         free(narg);
         free(nnarg);
+        free(is_done_next);
     }
 }
 
@@ -160,25 +192,31 @@ int main(int argc, char const *argv[]) {
     int n = argc > 1 ? std::stoi(argv[1]) : 4;
     ThreadPool thread_pool(n);
     sleep(1);
-    unsigned long int* array = (unsigned long int*)malloc(sizeof(unsigned long int) * n);
-    for (int i = 0; i < n; i++) {
+    unsigned long int* array = (unsigned long int*)malloc(sizeof(unsigned long int) * n * 4);
+    for (int i = 0; i < 4 * n; i++) {
         array[i] = rand() % 10000;
     }
     printf("Initial array: ");
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < 4 * n; i++) {
         printf("%ld ", array[i]);
     }
     printf("\n");
 
     ArgSort* arg = (ArgSort*)malloc(sizeof(ArgSort));
     arg->array = array;
-    arg->size = n;
+    arg->size = 4 * n;
     arg->thread_pool = &thread_pool;
     arg->is_greater = false;
     std::mutex m;
     std::condition_variable c;
     arg->m = &m;
     arg->c = &c;
+    arg->is_left = true;
+    arg->is_right_done = false;
+    arg->is_left_done = false;
+    arg->done = (bool*)malloc(sizeof(bool));
+    *arg->done = false;
+    
     long long start = __rdtsc();
     bitonic_sort_parallel(arg);
     thread_pool.wait();
@@ -186,7 +224,7 @@ int main(int argc, char const *argv[]) {
     printf("Time = %.6f\n", (end - start)/1000000000.);
 
     printf("Sorted array: ");
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < 4 * n; i++) {
         printf("%ld ", array[i]);
     }
     printf("\n");
